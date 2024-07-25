@@ -31,6 +31,10 @@ This Java-based Library Management System provides a comprehensive solution for 
 - `exception/`: Custom exceptions
 - `util/`: Utility classes
 
+## Class Diagram
+
+![air-lib-class-diagram](class-diagram.png)
+
 ## How to Run
 
 1. Compile the Java files
