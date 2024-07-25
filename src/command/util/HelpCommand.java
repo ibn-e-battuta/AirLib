@@ -15,9 +15,13 @@ public class HelpCommand implements Command {
     @Override
     public void execute(List<String> args) {
         System.out.println("Available commands:");
+        int maxCommandLength = _commandDescriptions.keySet().stream()
+                .mapToInt(String::length)
+                .max()
+                .orElse(0);
         for (Map.Entry<String, String> entry : _commandDescriptions.entrySet()) {
-            System.out.printf("%-40s - %s%n", entry.getKey(), entry.getValue());
+            System.out.printf("%-" + (maxCommandLength + 4) + "s - %s%n", entry.getKey(), entry.getValue());
         }
-        System.out.println("EXIT                                - Exit the program");
+        System.out.printf("%-" + (maxCommandLength + 4) + "s - %s%n", "EXIT", "Exit the program");
     }
 }
