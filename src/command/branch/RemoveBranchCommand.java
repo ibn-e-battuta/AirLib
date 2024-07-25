@@ -1,23 +1,24 @@
 package command.branch;
 
-import java.util.List;
-
 import command.Command;
 import service.LibraryService;
 
+import java.util.List;
+
 public class RemoveBranchCommand implements Command {
-    private final LibraryService libraryService;
+    private final LibraryService _libraryService;
 
     public RemoveBranchCommand(LibraryService libraryService) {
-        this.libraryService = libraryService;
+        _libraryService = libraryService;
     }
 
     @Override
     public void execute(List<String> args) throws Exception {
         if (args.size() != 1) {
-            throw new IllegalArgumentException("Usage: REMOVE-BRANCH [branchId]");
+            throw new IllegalArgumentException("Usage: REMOVE-BRANCH [branchCode]");
         }
-        String branchId = args.get(0);
-        libraryService.removeBranch(branchId);
+
+        var branchCode = args.get(0);
+        _libraryService.removeBranch(branchCode);
     }
 }
