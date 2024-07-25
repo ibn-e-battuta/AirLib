@@ -1,26 +1,28 @@
 package command.patron;
 
-import java.util.List;
-
 import command.Command;
+import command.CommandInputProcessor;
 import service.PatronService;
 
+import java.util.List;
+
 public class AddPatronCommand implements Command {
-    private final PatronService patronService;
+    private final PatronService _patronService;
 
     public AddPatronCommand(PatronService patronService) {
-        this.patronService = patronService;
+        _patronService = patronService;
     }
 
     @Override
     public void execute(List<String> args) throws Exception {
-        if (args.size() != 2) {
-            throw new IllegalArgumentException("Usage: ADD-PATRON [name] [email]");
+        if (args.size() != 3) {
+            throw new IllegalArgumentException("Usage: ADD-PATRON [name] [email] [preferences]");
         }
 
-        String name = args.get(0);
-        String email = args.get(1);
+        var name = CommandInputProcessor.processToken(args.get(0));
+        var email = args.get(1);
+        var preferences = CommandInputProcessor.processListToken(args.get(2));
 
-        patronService.addPatron(name, email);
+        _patronService.addPatron(name, email, preferences);
     }
 }

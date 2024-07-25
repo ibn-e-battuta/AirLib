@@ -1,17 +1,19 @@
 package command.patron;
 
-import java.util.List;
-
 import command.Command;
-import exception.NonEmptyBranchException;
 import service.PatronService;
+import util.Logger;
+
+import java.util.List;
 
 public class PrintPatronCommand implements Command {
 
-    private final PatronService patronService;
+    private final PatronService _patronService;
+    private final Logger _logger;
 
-    public PrintPatronCommand(PatronService patronService) {
-        this.patronService = patronService;
+    public PrintPatronCommand(PatronService patronService, Logger logger) {
+        _patronService = patronService;
+        _logger = logger;
     }
 
     @Override
@@ -20,9 +22,9 @@ public class PrintPatronCommand implements Command {
             throw new IllegalArgumentException("Usage: PRINT-PATRON [patronId]");
         }
 
-        var id = args.get(0);
+        var patronId = args.get(0);
 
-        var patron = patronService.getPatron(id);
-        System.out.println(patron);
+        var patronResponse = _patronService.getPatron(patronId);
+        _logger.info(patronResponse.toString());
     }
 }

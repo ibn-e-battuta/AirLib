@@ -1,27 +1,29 @@
 package command.patron;
 
-import java.util.List;
-
 import command.Command;
+import command.CommandInputProcessor;
 import service.PatronService;
 
+import java.util.List;
+
 public class UpdatePatronCommand implements Command {
-    private final PatronService patronService;
+    private final PatronService _patronService;
 
     public UpdatePatronCommand(PatronService patronService) {
-        this.patronService = patronService;
+        _patronService = patronService;
     }
 
     @Override
     public void execute(List<String> args) throws Exception {
-        if (args.size() != 3) {
-            throw new IllegalArgumentException("Usage: UPDATE-PATRON [patronId] [name] [email]");
+        if (args.size() != 4) {
+            throw new IllegalArgumentException("Usage: UPDATE-PATRON [patronId] [name] [email] [preferences]");
         }
 
-        String id = args.get(0);
-        String name = args.get(1);
-        String email = args.get(2);
+        var patronId = args.get(0);
+        var name = CommandInputProcessor.processToken(args.get(1));
+        var email = args.get(2);
+        var preferences = CommandInputProcessor.processListToken(args.get(3));
 
-        patronService.updatePatron(id, name, email);
+        _patronService.updatePatron(patronId, name, email, preferences);
     }
 }
