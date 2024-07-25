@@ -1,29 +1,30 @@
 package command.book;
 
-import java.util.List;
-
 import command.Command;
+import command.CommandInputProcessor;
 import service.BookService;
 
+import java.util.List;
+
 public class AddBookCommand implements Command {
-    private final BookService bookService;
+    private final BookService _bookService;
 
     public AddBookCommand(BookService bookService) {
-        this.bookService = bookService;
+        _bookService = bookService;
     }
 
     @Override
     public void execute(List<String> args) throws Exception {
         if (args.size() != 5) {
-            throw new IllegalArgumentException("Usage: ADD-BOOK [isbn] [title] [author] [subject] [publicationYear]");
+            throw new IllegalArgumentException("Usage: ADD-BOOK [isbn] [title] [authors] [genres] [publicationYear]");
         }
 
-        String isbn = args.get(0);
-        String title = args.get(1);
-        String author = args.get(2);
-        String subject = args.get(3);
-        Integer publicationDate = Integer.valueOf(args.get(4));
+        var isbn = args.get(0);
+        var title = CommandInputProcessor.processToken(args.get(1));
+        var authors = CommandInputProcessor.processListToken(args.get(2));
+        var genres = CommandInputProcessor.processListToken(args.get(3));
+        var publicationDate = Integer.valueOf(args.get(4));
 
-        bookService.addBook(isbn, title, author, subject, publicationDate);
+        _bookService.addBook(isbn, title, authors, genres, publicationDate);
     }
 }
