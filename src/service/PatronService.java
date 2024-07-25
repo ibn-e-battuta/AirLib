@@ -3,14 +3,18 @@ package service;
 import exception.PatronExistsException;
 import exception.PatronNotFoundException;
 import model.Patron;
+import model.response.PatronResponse;
 import repository.PatronRepository;
 import util.Logger;
+
+import java.util.List;
+
+import static util.Constants.PATRON_CODE;
 
 public class PatronService {
     private final PatronRepository patronRepository;
     private final Logger logger;
 
-    private static String patronCode = "P";
     private int patronCount = 0;
 
     public PatronService(PatronRepository patronRepository, Logger logger) {
@@ -18,42 +22,33 @@ public class PatronService {
         this.logger = logger;
     }
 
-    public void addPatron(String name, String email) throws PatronExistsException {
+    public void addPatron(String name, String email, List<String> preferences) throws PatronExistsException {
         var response = patronRepository.getPatronByEmail(email);
         if (response.isPresent()) {
-            throw new PatronExistsException("Patron with email " + email + " already exists.");
+            throw new PatronExistsException(email);
         }
 
         patronCount++;
-        var patron = new Patron(patronCode + patronCount, name, email);
+        var patron = new Patron(PATRON_CODE + patronCount, name, email, preferences);
         patronRepository.addPatron(patron);
         logger.info("Patron added: " + patron.getId());
     }
 
-    public Patron getPatron(String id) throws PatronNotFoundException {
-        return patronRepository.getPatron(id)
-            .orElseThrow(() -> new PatronNotFoundException("Patron with id: " + id + " not found."));
+    public PatronResponse getPatron(String patronId) throws PatronNotFoundException {
+        var patron = patronRepository.getPatron(patronId)
+            .orElseThrow(() -> new PatronNotFoundException(patronId));
+
+        return new PatronResponse(patron.getName(), patron.getEmail(), patron.getBorrowingHistory().size());
     }
 
-    public void addPreference(Patron patron, String preference) {
-        patron.addPreference(preference);
-        patronRepository.updatePatron(patron);
-        logger.info("Preference added for patron: " + patron.getId());
-    }
+    public void updatePatron(String patronId, String name, String email, List<String> preferences) throws PatronNotFoundException {
+        var patron = patronRepository.getPatron(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
 
-    public void updatePatron(String id, String name, String email) throws PatronNotFoundException {
-        var response = patronRepository.getPatron(id);
-
-        if (!response.isPresent()) {
-            throw new PatronNotFoundException("Patron with id: " + id + " not found.");
-        }
-
-        var patron = response.get();
         patron.setName(name);
         patron.setEmail(email);
+        patron.setPreferences(preferences);
 
         patronRepository.updatePatron(patron);
-
-        logger.info("Patron updated: " + id);
+        logger.info("Patron updated: " + patron.getId());
     }
 }

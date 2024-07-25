@@ -1,12 +1,10 @@
 package service.strategy;
 
 import model.Book;
-import model.BookItem;
+import model.BookCopy;
 import model.Patron;
 
 public interface NotificationStrategy {
-    void sendOverdueNotification(Patron patron, BookItem bookItem);
-    void sendDueDateReminder(Patron patron, BookItem bookItem);
+    void sendOverdueNotification(Patron patron, BookCopy bookCopy);
     void sendBookAvailableNotification(Patron patron, Book book);
-    void sendReservationFulfilledNotification(Patron patron, Book book);
 }

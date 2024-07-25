@@ -1,25 +1,21 @@
 package model;
 
+import model.base.BaseModel;
+
 import java.time.LocalDate;
 
-public class BookReservation {
-    private final String id;
+public class BookReservation extends BaseModel {
     private final Patron patron;
     private final Book book;
-    private LocalDate reservationDate;
+    private final LocalDate reservationDate;
     private ReservationStatus status;
 
     public BookReservation(String id, Patron patron, Book book) {
-        this.id = id;
+        super(id);
         this.patron = patron;
         this.book = book;
         this.reservationDate = LocalDate.now();
         this.status = ReservationStatus.WAITING;
-    }
-
-    // Getters and setters
-    public String getId() {
-        return id;
     }
 
     public Patron getPatron() {

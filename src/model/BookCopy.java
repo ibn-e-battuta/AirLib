@@ -1,31 +1,28 @@
 package model;
 
-public class BookItem {
-    private final String id;
+import model.base.Deletable;
+
+public class BookCopy extends Deletable {
     private Book book;
-    private Branch branch;
+    private LibraryBranch branch;
     private boolean isAvailable;
 
-    public BookItem(String id, Book book, Branch branch) {
-        this.id = id;
+    public BookCopy(String id, Book book, LibraryBranch branch) {
+        super(id);
         this.book = book;
         this.branch = branch;
         this.isAvailable = true;
-    }
-
-    public String getId() {
-        return id;
     }
 
     public Book getBook() {
         return book;
     }
 
-    public Branch getBranch() {
+    public LibraryBranch getBranch() {
         return branch;
     }
 
-    public void setBranch(Branch branch) {
+    public void setBranch(LibraryBranch branch) {
         this.branch = branch;
     }
 

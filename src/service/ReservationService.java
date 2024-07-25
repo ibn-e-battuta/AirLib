@@ -1,202 +1,163 @@
 package service;
 
+import exception.*;
+import model.BookCheckout;
+import model.BookReservation;
+import model.Patron;
+import model.ReservationStatus;
+import model.response.BookCheckoutResponse;
+import repository.*;
+import util.Logger;
+
 import java.time.LocalDate;
 import java.util.List;
 
-import exception.BookItemNotFoundException;
-import exception.BookItemUnavailableException;
-import exception.LibraryException;
-import exception.MaxRenewalsException;
-import exception.PatronMaxCheckoutsException;
-import exception.PatronNotFoundException;
-import exception.ReservationNotFoundException;
-import model.Book;
-import model.BookItem;
-import model.BookReservation;
-import model.Patron;
-import model.Reservation;
-import model.ReservationStatus;
-import repository.BookRepository;
-import repository.PatronRepository;
-import repository.ReservationRepository;
-import util.IdGenerator;
-import util.Logger;
+import static util.Constants.*;
 
 public class ReservationService {
-    private final ReservationRepository reservationRepository;
     private final BookRepository bookRepository;
+    private final BookCopyRepository bookCopyRepository;
     private final PatronRepository patronRepository;
+    private final BookCheckoutRepository bookCheckoutRepository;
+    private final BookReservationRepository bookReservationRepository;
+
     private final NotificationService notificationService;
+
     private final Logger logger;
-    private static final int MAX_RENEWALS = 2;
 
-    private static String reservationCode = "R";
-    private int reservationCount = 1;
+    private int checkoutCount = 0;
+    private int reservationCount = 0;
 
-    public ReservationService(ReservationRepository reservationRepository, NotificationService notificationService,
-            BookRepository bookRepository, PatronRepository patronRepository, Logger logger) {
-        this.reservationRepository = reservationRepository;
-        this.notificationService = notificationService;
+    public ReservationService(BookRepository bookRepository, BookCopyRepository bookCopyRepository, PatronRepository patronRepository, BookCheckoutRepository bookCheckoutRepository, BookReservationRepository bookReservationRepository, NotificationService notificationService,
+                              Logger logger) {
         this.bookRepository = bookRepository;
+        this.bookCopyRepository = bookCopyRepository;
         this.patronRepository = patronRepository;
+        this.bookCheckoutRepository = bookCheckoutRepository;
+        this.bookReservationRepository = bookReservationRepository;
+        this.notificationService = notificationService;
         this.logger = logger;
     }
 
-    public void checkoutBook(String patronId, String bookItemId, String branchId)
-            throws PatronNotFoundException, BookItemNotFoundException, PatronMaxCheckoutsException,
-            BookItemUnavailableException {
+    // Checkout a copy of the book from a library's branch
+    public void checkoutBook(String patronId, String bookCopyId, String branchCode)
+            throws PatronNotFoundException, BookCopyNotFoundException, PatronMaxCheckoutsException,
+            BookCopyUnavailableException {
         var patron = patronRepository.getPatron(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
 
-        if (getActiveReservationsForPatron(patron).size() >= 10) {
-            throw new PatronMaxCheckoutsException("Patron has reached the maximum number of checkouts");
+        if (getActiveCheckoutsForPatron(patron).size() >= MAX_CHECKOUTS) {
+            throw new PatronMaxCheckoutsException(MAX_CHECKOUTS);
         }
 
-        var bookItem = bookRepository.getBookItem(bookItemId)
-                .orElseThrow(() -> new BookItemNotFoundException(bookItemId));
-        if (!bookItem.isAvailable() || !bookItem.getBranch().getId().equals(branchId)) {
-            throw new BookItemUnavailableException("Book is not available for checkout at the specified branch");
+        var bookCopy = bookCopyRepository.getBookCopy(bookCopyId)
+                .orElseThrow(() -> new BookCopyNotFoundException(bookCopyId));
+        if (!bookCopy.isAvailable() || !bookCopy.getBranch().getId().equals(branchCode)) {
+            throw new BookCopyUnavailableException(bookCopyId);
+        }
+
+        checkoutCount++;
+        var bookCheckout = new BookCheckout(CHECKOUT_CODE + checkoutCount, patron, bookCopy,
+                LocalDate.now());
+        bookCheckoutRepository.addCheckout(bookCheckout);
+
+        bookCopy.setAvailable(false);
+        patron.addReservation(bookCheckout);
+
+        bookCopyRepository.updateBookCopy(bookCopy);
+        patronRepository.updatePatron(patron);
+
+        var response = bookReservationRepository.getBookReservationByBookAndPatron(patron, bookCopy.getBook());
+        if (response.isPresent()) {
+            var bookReservation = response.get();
+            bookReservation.setStatus(ReservationStatus.COMPLETED);
+            bookReservationRepository.updateReservation(bookReservation);
+        }
+
+        logger.info("Book checked out with checkout Id: " + bookCheckout.getId());
+    }
+
+    // Return the book copy
+    public void returnBook(String checkoutId) throws CheckoutNotFoundException {
+        var bookCheckout = bookCheckoutRepository.getCheckout(checkoutId)
+            .orElseThrow(() -> new CheckoutNotFoundException(checkoutId));
+
+        bookCheckout.setReturnDate(LocalDate.now());
+        var bookCopy = bookCheckout.getBookItem();
+        bookCopy.setAvailable(true);
+
+        bookCheckoutRepository.updateCheckout(bookCheckout);
+        bookCopyRepository.updateBookCopy(bookCopy);
+
+        logger.info("Book returned with checkout Id: " + bookCheckout.getId());
+
+        var waitingReservations = bookReservationRepository.getWaitingReservations(bookCopy.getBook());
+
+        if (!waitingReservations.isEmpty()) {
+            var reservation = waitingReservations.get(0);
+            notificationService.sendBookAvailableNotification(reservation.getPatron(), reservation.getBook());
+        }
+    }
+
+    // Renew a book copy checkout
+    public void renewBook(String checkoutId)
+            throws CheckoutNotFoundException, BookCopyOverdueException, MaxRenewalsException {
+        var bookCheckout = bookCheckoutRepository.getCheckout(checkoutId)
+                .orElseThrow(() -> new CheckoutNotFoundException(checkoutId));
+        if (bookCheckout.getDueDate().isBefore(LocalDate.now())) {
+            throw new BookCopyOverdueException();
+        }
+
+        if (bookCheckout.getRenewalCount() >= MAX_RENEWALS) {
+            throw new MaxRenewalsException(MAX_RENEWALS);
+        }
+
+        bookCheckout.setDueDate(bookCheckout.getDueDate().plusDays(15));
+        bookCheckout.setRenewalCount(bookCheckout.getRenewalCount() + 1);
+
+        bookCheckoutRepository.updateCheckout(bookCheckout);
+        logger.info("Book renewed with checkout Id: " + bookCheckout.getId());
+    }
+
+    // Reserve a book
+    public void reserveBook(String patronId, String isbn) throws PatronNotFoundException, BookCopyNotFoundException, PatronMaxCheckoutsException, BookCopyAlreadyCheckedOutException {
+        var patron = patronRepository.getPatron(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
+
+        if (getActiveCheckoutsForPatron(patron).size() >= MAX_CHECKOUTS) {
+            throw new PatronMaxCheckoutsException(MAX_CHECKOUTS);
+        }
+
+        var book = bookRepository.getBook(isbn).orElseThrow(() -> new BookCopyNotFoundException(isbn));
+
+        var isBookCheckOutByPatron = bookCheckoutRepository.isBookCheckedOutByPatron(patron, book);
+        if (isBookCheckOutByPatron) {
+            throw new BookCopyAlreadyCheckedOutException(book.getTitle());
         }
 
         reservationCount++;
-        Reservation reservation = new Reservation(reservationCode + reservationCount, patron, bookItem,
-                LocalDate.now());
-        reservationRepository.addReservation(reservation);
-        bookItem.setAvailable(false);
-        patron.addReservation(reservation);
+        var bookReservation = new BookReservation(BOOK_RESERVATION_CODE + reservationCount, patron, book);
+        bookReservationRepository.addReservation(bookReservation);
 
-        bookRepository.updateBookItem(bookItem);
-        patronRepository.updatePatron(patron);
-
-        logger.info("Book checked out with reservation Id: " + reservation.getId());
+        logger.info("Reservation added with id: " + bookReservation.getId());
     }
 
-    public void returnBook(String reservationId) throws ReservationNotFoundException {
-        Reservation reservation = reservationRepository.getReservation(reservationId)
-            .orElseThrow(() -> new ReservationNotFoundException(reservationId));
-
-        // Set the return date and make the book item available
-        reservation.setReturnDate(LocalDate.now());
-        BookItem bookItem = reservation.getBookItem();
-        bookItem.setAvailable(true);
-
-        // Update the reservation and book item in the repositories
-        reservationRepository.updateReservation(reservation);
-        bookRepository.updateBookItem(bookItem);
-
-        // Log the return
-        logger.info("Book returned: " + bookItem.getBook().getTitle() + " by patron: " + reservation.getPatron().getName());
-
-        // Check for waiting reservations
-        List<BookReservation> waitingReservations = reservationRepository.getWaitingReservations(bookItem.getBook());
-        if (!waitingReservations.isEmpty()) {
-            BookReservation nextReservation = waitingReservations.get(0);
-            notificationService.sendBookAvailableNotification(nextReservation.getPatron(), bookItem.getBook());
-        }
+    public List<BookCheckout> getActiveCheckoutsForPatron(Patron patron) {
+        return bookCheckoutRepository.getActiveCheckoutsForPatron(patron);
     }
 
-    public void renewBook(String reservationId)
-            throws ReservationNotFoundException, BookItemOverdueException, MaxRenewalsException {
-        Reservation reservation = reservationRepository.getReservation(reservationId)
-                .orElseThrow(() -> new ReservationNotFoundException(reservationId));
-        if (reservation.getDueDate().isBefore(LocalDate.now())) {
-            throw new BookItemOverdueException("Book is overdue and cannot be renewed");
+    public List<BookCheckoutResponse> getPatronBorrowingHistory(String patronId) throws PatronNotFoundException {
+        var patron = patronRepository.getPatron(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
+        return bookCheckoutRepository.getCheckoutsForPatron(patron).stream().map(c -> new BookCheckoutResponse(c.getBookItem().getBook().getTitle(), c.getIssueDate().toString(), c.getReturnDate().toString())).toList();
+    }
+
+    public void cancelReservation(String reservationId) throws ReservationNotFoundException, ReservationStatusException {
+        var bookReservation = bookReservationRepository.getBookReservation(reservationId).orElseThrow(() -> new ReservationNotFoundException(reservationId));
+
+        if (!bookReservation.getStatus().equals(ReservationStatus.WAITING)) {
+            throw new ReservationStatusException();
         }
 
-        if (reservation.getRenewalCount() >= MAX_RENEWALS) {
-            throw new MaxRenewalsException("Maximum number of renewals reached");
-        }
-
-        reservation.setDueDate(reservation.getDueDate().plusDays(15));
-        reservation.setRenewalCount(reservation.getRenewalCount() + 1);
-        logger.info("Reservation Id: " + reservation.getId() + ": " + "Book renewed: "
-                + reservation.getBookItem().getId() + " by patron: "
-                + reservation.getPatron().getId());
+        bookReservation.setStatus(ReservationStatus.CANCELLED);
+        bookReservationRepository.updateReservation(bookReservation);
+        logger.info("Reservation cancelled with id: " + bookReservation.getId());
     }
-
-    public BookReservation reserveBook(Patron patron, Book book) throws LibraryException {
-        if (getActiveReservationsForPatron(patron).size() >= 10) {
-            throw new LibraryException("Patron has reached the maximum number of reservations");
-        }
-
-        String reservationId = IdGenerator.generateId();
-        BookReservation bookReservation = new BookReservation(reservationId, patron, book);
-        reservationRepository.addBookReservation(bookReservation);
-
-        logger.info("Book reserved: " + book.getIsbn() + " by patron: " + patron.getId());
-        return bookReservation;
-    }
-
-    public List<Reservation> getActiveReservationsForPatron(Patron patron) {
-        return reservationRepository.getActiveReservationsForPatron(patron);
-    }
-
-    public List<Reservation> getOverdueReservations() {
-        return reservationRepository.getOverdueReservations();
-    }
-
-    public void checkOverdueBooks() {
-        List<Reservation> overdueReservations = getOverdueReservations();
-        for (Reservation reservation : overdueReservations) {
-            notificationService.sendOverdueNotification(reservation.getPatron(), reservation.getBookItem());
-        }
-    }
-
-    public void checkUpcomingDueBooks() {
-        LocalDate twoDaysLater = LocalDate.now().plusDays(2);
-        List<Reservation> upcomingDueReservations = reservationRepository.getReservationsWithDueDate(twoDaysLater);
-        for (Reservation reservation : upcomingDueReservations) {
-            notificationService.sendDueDateReminder(reservation.getPatron(), reservation.getBookItem());
-        }
-    }
-
-    public void checkAndFulfillReservations() {
-        List<BookReservation> activeReservations = reservationRepository.getAllActiveBookReservations();
-        for (BookReservation reservation : activeReservations) {
-            List<BookItem> availableItems = bookRepository.getAvailableBookItems(reservation.getBook().getIsbn(),
-                    reservation.getPatron().getId());
-            if (!availableItems.isEmpty()) {
-                BookItem availableItem = availableItems.get(0);
-                try {
-                    Reservation newReservation = checkoutBook(reservation.getPatron(), availableItem,
-                            availableItem.getBranch().getId());
-                    reservation.setStatus(ReservationStatus.COMPLETED);
-                    reservationRepository.updateBookReservation(reservation);
-                    notificationService.sendReservationFulfilledNotification(reservation.getPatron(),
-                            availableItem.getBook());
-                } catch (LibraryException e) {
-                    logger.error("Failed to fulfill reservation: " + e.getMessage());
-                }
-            }
-        }
-    }
-
-    public Reservation getReservation(String reservationId) {
-        return reservationRepository.getReservation(reservationId);
-    }
-
-    /*
-     * public void checkAndFulfillReservations() {
-     * List<BookReservation> activeReservations =
-     * reservationRepository.getAllActiveBookReservations();
-     * for (BookReservation reservation : activeReservations) {
-     * List<BookItem> availableItems =
-     * bookRepository.getAvailableBookItems(reservation.getBook().getIsbn());
-     * if (!availableItems.isEmpty()) {
-     * BookItem availableItem = availableItems.get(0);
-     * try {
-     * Reservation newReservation = checkoutBook(reservation.getPatron(),
-     * availableItem);
-     * reservation.setStatus(BookReservation.ReservationStatus.COMPLETED);
-     * reservationRepository.updateBookReservation(reservation);
-     * notificationService.sendReservationFulfilledNotification(reservation.
-     * getPatron(), availableItem.getBook());
-     * } catch (LibraryException e) {
-     * logger.error("Failed to fulfill reservation: " + e.getMessage());
-     * }
-     * }
-     * }
-     * }
-     * 
-     */
-
 }

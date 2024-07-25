@@ -1,36 +1,32 @@
 package model;
 
+import model.base.BaseModel;
+
 import java.time.LocalDate;
 
-public class Reservation {
-    private final String id;
+public class BookCheckout extends BaseModel {
     private final Patron patron;
-    private final BookItem bookItem;
+    private final BookCopy bookCopy;
     private final LocalDate issueDate;
     private LocalDate dueDate;
     private LocalDate returnDate;
     private int renewalCount;
 
-    public Reservation(String id, Patron patron, BookItem bookItem, LocalDate issueDate) {
-        this.id = id;
+    public BookCheckout(String id, Patron patron, BookCopy bookCopy, LocalDate issueDate) {
+        super(id);
         this.patron = patron;
-        this.bookItem = bookItem;
+        this.bookCopy = bookCopy;
         this.issueDate = issueDate;
         this.dueDate = issueDate.plusDays(15);
         this.renewalCount = 0;
-    }
-
-    // Getters and setters
-    public String getId() {
-        return id;
     }
 
     public Patron getPatron() {
         return patron;
     }
 
-    public BookItem getBookItem() {
-        return bookItem;
+    public BookCopy getBookItem() {
+        return bookCopy;
     }
 
     public LocalDate getIssueDate() {

@@ -1,7 +1,7 @@
 package exception;
 
 public class PatronMaxCheckoutsException extends Exception {
-    public PatronMaxCheckoutsException(String message) {
-        super(message);
+    public PatronMaxCheckoutsException(int maxCheckouts) {
+        super("Patron has reached the maximum number (" + maxCheckouts + ") of checkouts");
     }
 }

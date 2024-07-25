@@ -1,76 +1,68 @@
 package service;
 
+import exception.PatronNotFoundException;
 import model.Book;
 import model.Patron;
+import model.response.BookResponse;
+import repository.BookCheckoutRepository;
 import repository.BookRepository;
-import repository.ReservationRepository;
+import repository.PatronRepository;
 
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class RecommendationService {
-    private final ReservationRepository reservationRepository;
+    private final BookCheckoutRepository bookCheckoutRepository;
     private final BookRepository bookRepository;
+    private final PatronRepository _patronRepository;
 
-    public RecommendationService(ReservationRepository reservationRepository, BookRepository bookRepository) {
-        this.reservationRepository = reservationRepository;
+    public RecommendationService(BookCheckoutRepository bookCheckoutRepository, BookRepository bookRepository, PatronRepository patronRepository) {
+        this.bookCheckoutRepository = bookCheckoutRepository;
         this.bookRepository = bookRepository;
+        _patronRepository = patronRepository;
     }
 
-    public List<Book> getRecommendations(Patron patron) {
+    public List<BookResponse> getRecommendations(String patronId) throws PatronNotFoundException {
+        var patron = _patronRepository.getPatron(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
         List<Book> borrowedBooks = getBorrowedBooks(patron);
-        Map<String, Double> subjectScores = calculateSubjectScores(borrowedBooks);
+        Map<String, Double> genreScores = calculateGenreScores(borrowedBooks);
         Map<String, Double> authorScores = calculateAuthorScores(borrowedBooks);
         Set<Book> recommendedBooks = new HashSet<>();
 
-        // Get recommendations based on subject preferences
-        recommendedBooks.addAll(getSubjectBasedRecommendations(subjectScores, borrowedBooks));
-
-        // Get recommendations based on author preferences
+        recommendedBooks.addAll(getGenreBasedRecommendations(genreScores, borrowedBooks));
         recommendedBooks.addAll(getAuthorBasedRecommendations(authorScores, borrowedBooks));
-
-        // Get recommendations based on patron's explicit preferences
         recommendedBooks.addAll(getPreferenceBasedRecommendations(patron, borrowedBooks));
-
-        // Get popular books that the patron hasn't read
         recommendedBooks.addAll(getPopularBooks(borrowedBooks));
+        recommendedBooks.addAll(getRecentBooks(genreScores, borrowedBooks));
 
-        // Get recent books in patron's favorite subjects
-        recommendedBooks.addAll(getRecentBooks(subjectScores, borrowedBooks));
-
-        return new ArrayList<>(recommendedBooks);
+        return recommendedBooks.stream().map(b -> new BookResponse(b.getId(), b.getTitle(), b.getAuthors(), b.getGenres(), b.getPublicationYear())).toList();
     }
 
     private List<Book> getBorrowedBooks(Patron patron) {
-        return reservationRepository.getReservationsForPatron(patron).stream()
+        return bookCheckoutRepository.getCheckoutsForPatron(patron).stream()
                 .map(reservation -> reservation.getBookItem().getBook())
                 .distinct()
                 .collect(Collectors.toList());
     }
 
-    private Map<String, Double> calculateSubjectScores(List<Book> borrowedBooks) {
-        Map<String, Double> subjectScores = new HashMap<>();
-        LocalDate now = LocalDate.now();
-
-        for (Book book : borrowedBooks) {
-            double score = 1.0;
-            // Give higher weight to recently borrowed books
-            if (book.getPublicationYear() != null) {
-                long daysSincePublication = book.getPublicationYear();
-                score *= Math.exp(-daysSincePublication / 365.0); // Decay factor
-            }
-            subjectScores.merge(book.getSubject(), score, Double::sum);
-        }
-
-        return normalizeScores(subjectScores);
+    private Map<String, Double> calculateGenreScores(List<Book> borrowedBooks) {
+        Map<String, Double> genreScores = new HashMap<>();
+        borrowedBooks.forEach(book ->
+                book.getGenres().forEach(genre ->
+                        genreScores.merge(genre, 1.0, Double::sum)
+                )
+        );
+        return normalizeScores(genreScores);
     }
 
     private Map<String, Double> calculateAuthorScores(List<Book> borrowedBooks) {
         Map<String, Double> authorScores = new HashMap<>();
-        for (Book book : borrowedBooks) {
-            authorScores.merge(book.getAuthor(), 1.0, Double::sum);
-        }
+        borrowedBooks.forEach(book ->
+                book.getAuthors().forEach(author ->
+                        authorScores.merge(author, 1.0, Double::sum)
+                )
+        );
         return normalizeScores(authorScores);
     }
 
@@ -80,9 +72,9 @@ public class RecommendationService {
         return scores;
     }
 
-    private List<Book> getSubjectBasedRecommendations(Map<String, Double> subjectScores, List<Book> borrowedBooks) {
-        return subjectScores.entrySet().stream()
-                .flatMap(entry -> bookRepository.searchBooks(entry.getKey(), "subject").stream()
+    private List<Book> getGenreBasedRecommendations(Map<String, Double> genreScores, List<Book> borrowedBooks) {
+        return genreScores.entrySet().stream()
+                .flatMap(entry -> bookRepository.findByGenre(entry.getKey()).stream()
                         .filter(book -> !borrowedBooks.contains(book))
                         .map(book -> new AbstractMap.SimpleEntry<>(book, entry.getValue())))
                 .sorted(Map.Entry.<Book, Double>comparingByValue().reversed())
@@ -93,7 +85,7 @@ public class RecommendationService {
 
     private List<Book> getAuthorBasedRecommendations(Map<String, Double> authorScores, List<Book> borrowedBooks) {
         return authorScores.entrySet().stream()
-                .flatMap(entry -> bookRepository.searchBooks(entry.getKey(), "author").stream()
+                .flatMap(entry -> bookRepository.findByAuthor(entry.getKey()).stream()
                         .filter(book -> !borrowedBooks.contains(book))
                         .map(book -> new AbstractMap.SimpleEntry<>(book, entry.getValue())))
                 .sorted(Map.Entry.<Book, Double>comparingByValue().reversed())
@@ -104,7 +96,7 @@ public class RecommendationService {
 
     private List<Book> getPreferenceBasedRecommendations(Patron patron, List<Book> borrowedBooks) {
         return patron.getPreferences().stream()
-                .flatMap(preference -> bookRepository.searchBooks(preference, "").stream())
+                .flatMap(preference -> bookRepository.findByTitleOrGenreOrAuthor(preference).stream())
                 .filter(book -> !borrowedBooks.contains(book))
                 .distinct()
                 .limit(3)
@@ -112,24 +104,21 @@ public class RecommendationService {
     }
 
     private List<Book> getPopularBooks(List<Book> borrowedBooks) {
-        return reservationRepository.getMostPopularBooks(10).stream()
+        return bookCheckoutRepository.getMostPopularBooks(10).stream()
                 .filter(book -> !borrowedBooks.contains(book))
                 .limit(2)
                 .collect(Collectors.toList());
     }
 
-    private List<Book> getRecentBooks(Map<String, Double> subjectScores, List<Book> borrowedBooks) {
-        /*
-        LocalDate sixMonthsAgo = LocalDate.now().minusMonths(6);
-        return subjectScores.entrySet().stream()
-                .flatMap(entry -> bookRepository.searchBooks(entry.getKey(), "subject").stream()
-                        .filter(book -> !borrowedBooks.contains(book) && book.getPublicationYear().isAfter(sixMonthsAgo))
+    private List<Book> getRecentBooks(Map<String, Double> genreScores, List<Book> borrowedBooks) {
+        int currentYear = LocalDate.now().getYear();
+        return genreScores.entrySet().stream()
+                .flatMap(entry -> bookRepository.findByGenre(entry.getKey()).stream()
+                        .filter(book -> !borrowedBooks.contains(book) && book.getPublicationYear() >= currentYear - 2)
                         .map(book -> new AbstractMap.SimpleEntry<>(book, entry.getValue())))
                 .sorted(Map.Entry.<Book, Double>comparingByValue().reversed())
                 .limit(2)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
-*/
-                return null;
     }
 }

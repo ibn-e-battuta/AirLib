@@ -1,128 +1,70 @@
 package repository;
 
 import model.Book;
-import model.BookItem;
-import model.Branch;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
-import exception.BookNotFoundException;
 
 public class BookRepository {
     private final Map<String, Book> books = new HashMap<>();
-    private final Map<String, BookItem> bookItems = new HashMap<>();
 
     public void addBook(Book book) {
-        books.put(book.getIsbn(), book);
-    }
-
-    public void addBookItem(BookItem bookItem) {
-        bookItems.put(bookItem.getId(), bookItem);
+        books.put(book.getId(), book);
     }
 
     public void updateBook(Book book) {
-        books.put(book.getIsbn(), book);
-    }
-
-    public boolean isBookInUse(String isbn) throws BookNotFoundException {
-        if (!books.containsKey(isbn)) {
-            throw new BookNotFoundException("Book with ISBN " + isbn + " not found");
-        }
-
-        return bookItems.values().stream()
-                .anyMatch(item -> item.getBook().getIsbn().equals(isbn) && !item.isAvailable());
+        books.put(book.getId(), book);
     }
 
     public void removeBook(String isbn) {
-        books.remove(isbn);
-        bookItems.values().removeIf(item -> item.getBook().getIsbn().equals(isbn));
+        var book = books.get(isbn);
+        book.setDeleted(true);
     }
 
     public Optional<Book> getBook(String isbn) {
-        return Optional.ofNullable(books.get(isbn));
+        return books.values().stream().filter(b -> b.getId().equals(isbn) && !b.isDeleted()).findAny();
+    }
+
+    public List<Book> findByGenre(String genre) {
+        return books.values().stream()
+                .filter(b -> !b.isDeleted() && b.getGenres().contains(genre))
+                .toList();
+    }
+
+    public List<Book> findByAuthor(String author) {
+        return books.values().stream()
+                .filter(b -> !b.isDeleted() && b.getAuthors().contains(author))
+                .toList();
+    }
+
+    public List<Book> findByTitleOrGenreOrAuthor(String query) {
+        String lowercaseQuery = query.toLowerCase();
+        return books.values().stream()
+                .filter(b -> !b.isDeleted() && (b.getTitle().toLowerCase().contains(lowercaseQuery) ||
+                        b.getGenres().stream().anyMatch(genre -> genre.toLowerCase().contains(lowercaseQuery)) ||
+                        b.getAuthors().stream().anyMatch(author -> author.toLowerCase().contains(lowercaseQuery))))
+                .toList();
     }
 
     public List<Book> searchBooks(String query, String searchBy) {
         String lowercaseQuery = query.toLowerCase();
         return books.values().stream()
-                .filter(book -> {
-                    switch (searchBy.toLowerCase()) {
-                        case "title":
-                            return book.getTitle().toLowerCase().contains(lowercaseQuery);
-                        case "author":
-                            return book.getAuthor().toLowerCase().contains(lowercaseQuery);
-                        case "subject":
-                            return book.getSubject().toLowerCase().contains(lowercaseQuery);
-                        case "publication_date":
-                            return book.getPublicationYear().toString().contains(lowercaseQuery);
-                        case "isbn":
-                            return book.getIsbn().toLowerCase().contains(lowercaseQuery);
-                        default:
-                            return book.getTitle().toLowerCase().contains(lowercaseQuery)
-                                    || book.getAuthor().toLowerCase().contains(lowercaseQuery)
-                                    || book.getSubject().toLowerCase().contains(lowercaseQuery)
-                                    || book.getIsbn().toLowerCase().contains(lowercaseQuery)
-                                    || book.getPublicationYear().toString().contains(lowercaseQuery);
-                    }
-                })
+                .filter(b -> !b.isDeleted() && (switch (searchBy.toLowerCase()) {
+                    case "title" -> b.getTitle().toLowerCase().contains(lowercaseQuery);
+                    case "author" ->
+                        b.getAuthors().stream().anyMatch(author -> author.toLowerCase().contains(lowercaseQuery));
+                    case "genre" ->
+                        b.getGenres().stream().anyMatch(genre -> genre.toLowerCase().contains(lowercaseQuery));
+                    case "isbn" -> b.getId().toLowerCase().contains(lowercaseQuery);
+                    case "publication_year" -> b.getPublicationYear().toString().equals(lowercaseQuery);
+                    default -> b.getTitle().toLowerCase().contains(lowercaseQuery) ||
+                            b.getAuthors().stream().anyMatch(author -> author.toLowerCase().contains(lowercaseQuery))
+                            ||
+                            b.getGenres().stream().anyMatch(genre -> genre.toLowerCase().contains(lowercaseQuery)) ||
+                            b.getId().toLowerCase().contains(lowercaseQuery);
+                }))
                 .toList();
-    }
-
-    public List<BookItem> getBookItems(String isbn) {
-        return bookItems.values().stream()
-                .filter(item -> item.getBook().getIsbn().equals(isbn))
-                .toList();
-    }
-
-    public Optional<BookItem> getBookItem(String bookItemId) {
-        return Optional.ofNullable(bookItems.get(bookItemId));
-    }
-
-    public int getTotalCopies(String isbn) {
-        return (int) bookItems.values().stream()
-                .filter(item -> item.getBook().getIsbn().equals(isbn))
-                .count();
-    }
-
-    public int getLentCopies(String isbn) {
-        return (int) bookItems.values().stream()
-                .filter(item -> item.getBook().getIsbn().equals(isbn) && !item.isAvailable())
-                .count();
-    }
-
-    public List<BookItem> getAvailableBookItems(String isbn, String branchId) {
-        return bookItems.values().stream()
-                .filter(item -> item.getBook().getIsbn().equals(isbn)
-                        && item.getBranch().getId().equals(branchId)
-                        && item.isAvailable())
-                .collect(Collectors.toList());
-    }
-
-    public Map<String, Integer> getBookCopiesByBranch(String isbn) {
-        return bookItems.values().stream()
-                .filter(item -> item.getBook().getIsbn().equals(isbn))
-                .collect(Collectors.groupingBy(
-                        item -> item.getBranch().getId(),
-                        Collectors.summingInt(item -> 1)));
-    }
-
-    public List<BookItem> getBookItemsByBranch(String branchId) {
-        return bookItems.values().stream()
-                .filter(item -> item.getBranch().getId().equals(branchId))
-                .toList();
-    }
-
-    public void updateBookItem(BookItem bookItem) {
-        bookItems.put(bookItem.getId(), bookItem);
-    }
-
-    public void updateBranchInBookItems(Branch branch) {
-        bookItems.values().stream()
-                .filter(item -> item.getBranch().getId().equals(branch.getId()))
-                .forEach(item -> item.setBranch(branch));
     }
 }

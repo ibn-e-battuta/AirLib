@@ -17,8 +17,8 @@ public class PatronRepository {
         patrons.put(patron.getId(), patron);
     }
 
-    public Optional<Patron> getPatron(String id) {
-        return Optional.ofNullable(patrons.get(id));
+    public Optional<Patron> getPatron(String patronId) {
+        return patrons.values().stream().filter(p -> p.getId().equals(patronId)).findAny();
     }
 
     public Optional<Patron> getPatronByEmail(String email) {

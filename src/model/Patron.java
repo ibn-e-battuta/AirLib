@@ -1,25 +1,22 @@
 package model;
 
+import model.base.BaseModel;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class Patron {
-    private final String id;
+public class Patron extends BaseModel {
     private String name;
     private String email;
-    private List<Reservation> borrowingHistory;
-    private List<String> preferences;
+    private final List<BookCheckout> borrowingHistory;
+    private final List<String> preferences;
 
-    public Patron(String id, String name, String email) {
-        this.id = id;
+    public Patron(String id, String name, String email, List<String> preferences) {
+        super(id);
         this.name = name;
         this.email = email;
         this.borrowingHistory = new ArrayList<>();
-        this.preferences = new ArrayList<>();
-    }
-
-    public String getId() {
-        return id;
+        this.preferences = preferences;
     }
 
     public String getName() {
@@ -38,24 +35,20 @@ public class Patron {
         this.email = email;
     }
 
-    public List<Reservation> getBorrowingHistory() {
+    public List<BookCheckout> getBorrowingHistory() {
         return borrowingHistory;
     }
 
-    public void addReservation(Reservation reservation) {
-        borrowingHistory.add(reservation);
+    public void addReservation(BookCheckout bookCheckout) {
+        borrowingHistory.add(bookCheckout);
     }
 
     public List<String> getPreferences() {
         return preferences;
     }
 
-    public void addPreference(String preference) {
-        preferences.add(preference);
-    }
-
-    @Override
-    public String toString() {
-        return "Patron [ Id=" + id + ", Name=" + name + ", Email=" + email + " ]";
+    public void setPreferences(List<String> preferences) {
+        this.preferences.clear();
+        this.preferences.addAll(preferences);
     }
 }

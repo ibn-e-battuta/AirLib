@@ -1,7 +1,7 @@
 package exception;
 
 public class BranchExistsException extends Exception {
-    public BranchExistsException(String name, String address) {
-        super("Branch with name " + name + " and address " + address + " already exists");
+    public BranchExistsException(String code) {
+        super("Branch with code " + code + " already exists");
     }
 }

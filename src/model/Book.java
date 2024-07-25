@@ -1,23 +1,21 @@
 package model;
 
-public class Book {
-    private final String isbn;
+import model.base.Deletable;
+
+import java.util.List;
+
+public class Book extends Deletable {
     private String title;
-    private String author;
-    private String subject;
+    private List<String> authors;
+    private List<String> genres;
     private Integer publicationYear;
 
-    public Book(String isbn, String title, String author, String subject, Integer publicationYear) {
-        this.isbn = isbn;
+    public Book(String isbn, String title, List<String> authors, List<String> genres, Integer publicationYear) {
+        super(isbn);
         this.title = title;
-        this.author = author;
-        this.subject = subject;
+        this.authors = authors;
+        this.genres = genres;
         this.publicationYear = publicationYear;
-    }
-
-    // Getters and setters
-    public String getIsbn() {
-        return isbn;
     }
 
     public String getTitle() {
@@ -28,20 +26,22 @@ public class Book {
         this.title = title;
     }
 
-    public String getAuthor() {
-        return author;
+    public List<String> getAuthors() {
+        return authors;
     }
 
-    public void setAuthor(String author) {
-        this.author = author;
+    public void setAuthors(List<String> authors) {
+        this.authors.clear();
+        this.authors.addAll(authors);
     }
 
-    public String getSubject() {
-        return subject;
+    public List<String> getGenres() {
+        return genres;
     }
 
-    public void setSubject(String subject) {
-        this.subject = subject;
+    public void setGenres(List<String> genres) {
+        this.genres.clear();
+        this.genres.addAll(genres);
     }
 
     public Integer getPublicationYear() {

@@ -1,87 +1,51 @@
-import command.*;
+import command.Command;
+import command.CommandFactory;
 import model.Library;
-
-import repository.BookRepository;
-import repository.PatronRepository;
-import repository.ReservationRepository;
+import repository.*;
 import service.*;
-import service.strategy.EmailNotificationStrategy;
-import service.strategy.NotificationStrategy;
+import service.strategy.ConsoleNotificationStrategy;
 import util.Logger;
 import util.Logger.LogLevel;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class AirLibSystem {
-    private final CommandFactory commandFactory;
-    private final Logger logger;
-    private final ReservationService reservationService;
-    private final Library library;
+    private final CommandFactory _commandFactory;
+    private final Logger _logger;
 
     public AirLibSystem(Scanner scanner) {
-        this.logger = new Logger(LogLevel.INFO, true);
-        this.library = initializeLibrary(scanner);
-        
-        BookRepository bookRepository = new BookRepository();
-        PatronRepository patronRepository = new PatronRepository();
-        ReservationRepository reservationRepository = new ReservationRepository();
-        NotificationStrategy emailStrategy = new EmailNotificationStrategy();
-        NotificationService notificationService = new NotificationService(logger, emailStrategy);
+        _logger = new Logger(LogLevel.INFO, true);
+        initializeLibrary(scanner);
 
-        
-        PatronService patronService = new PatronService(patronRepository, logger);
-        this.reservationService = new ReservationService(reservationRepository, notificationService, bookRepository, logger);
-        RecommendationService recommendationService = new RecommendationService(reservationRepository, bookRepository);
-        LibraryService libraryService = new LibraryService(library, logger);
-        BookService bookService = new BookService(bookRepository, libraryService, logger);
+        var bookRepo = new BookRepository();
+        var bookCopyRepo = new BookCopyRepository();
+        var patronRepo = new PatronRepository();
+        var bookCheckoutRepo = new BookCheckoutRepository();
+        var bookReservationRepo = new BookReservationRepository();
+        var libraryBranchRepo = new LibraryBranchRepository();
+        var consoleStrategy = new ConsoleNotificationStrategy();
+        var notificationService = new NotificationService(_logger, consoleStrategy);
 
-        this.commandFactory = new CommandFactory(bookService, patronService, this.reservationService, recommendationService, libraryService, logger);
+        var libraryService = new LibraryService(libraryBranchRepo, _logger);
+        var bookService = new BookService(bookRepo, bookCopyRepo, libraryBranchRepo, _logger);
+        var patronService = new PatronService(patronRepo, _logger);
+        var reservationService = new ReservationService(bookRepo, bookCopyRepo, patronRepo, bookCheckoutRepo,
+                bookReservationRepo, notificationService, _logger);
+        var recommendationService = new RecommendationService(bookCheckoutRepo, bookRepo, patronRepo);
 
-        logger.info("AirLib System initialized");
-        // startScheduledTasks();
+        _commandFactory = new CommandFactory(bookService, patronService, reservationService, recommendationService,
+                libraryService, _logger);
+
+        _logger.info("AirLib System initialized");
     }
 
-    private void startScheduledTasks() {
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
-        // Schedule overdue book check daily
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                new CheckOverdueBooksCommand(reservationService).execute(List.of());
-            } catch (Exception e) {
-                logger.exception("Error checking overdue books", e);
-            }
-        }, 1, 24, TimeUnit.HOURS);
-
-        // Schedule upcoming due date check daily
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                reservationService.checkUpcomingDueBooks();
-            } catch (Exception e) {
-                logger.exception("Error checking upcoming due books", e);
-            }
-        }, 1, 24, TimeUnit.HOURS);
-
-        // Schedule reservation fulfillment check hourly
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                reservationService.checkAndFulfillReservations();
-            } catch (Exception e) {
-                logger.exception("Error checking and fulfilling reservations", e);
-            }
-        }, 1, 1, TimeUnit.HOURS);
-    }
-
-    private Library initializeLibrary(Scanner scanner) {
+    private void initializeLibrary(Scanner scanner) {
         System.out.println("Welcome to AirLib Library Management System Setup!");
         System.out.print("Enter the name of the library: ");
         String libraryName = scanner.nextLine();
-        return new Library(libraryName);
+        Library.getInstance().initialize(libraryName);
     }
 
     public static void main(String[] args) {
@@ -91,8 +55,8 @@ public class AirLibSystem {
         scanner.close();
     }
 
-    private void run(Scanner scanner) {        
-        System.out.println("Welcome to " + library.getName());
+    private void run(Scanner scanner) {
+        System.out.println("Welcome to " + Library.getInstance().getName());
         System.out.println("Type 'HELP' to see available commands or 'EXIT' to quit the program.");
 
         while (true) {
@@ -100,8 +64,8 @@ public class AirLibSystem {
             String input = scanner.nextLine().trim();
 
             if (input.equalsIgnoreCase("EXIT")) {
-                logger.info("System shutdown initiated");
-                logger.info("Exiting. Thank you for using AirLib!");
+                _logger.info("System shutdown initiated");
+                _logger.info("Exiting. Thank you for using AirLib!");
                 break;
             }
 
@@ -113,19 +77,19 @@ public class AirLibSystem {
             String commandName = parts.get(0).toUpperCase();
             List<String> args = parts.subList(1, parts.size());
 
-            logger.info("Command executed: " + input);
+            _logger.info("Command executed: " + input);
 
-            Command command = commandFactory.getCommand(commandName);
+            Command command = _commandFactory.getCommand(commandName);
             if (command == null) {
-                logger.info("Invalid command. Type 'HELP' to see available commands.");
+                _logger.info("Invalid command. Type 'HELP' to see available commands.");
                 continue;
             }
 
             try {
                 command.execute(args);
             } catch (Exception e) {
-                logger.exception("An error occurred during command execution", e);
-                logger.info("An error occurred: " + e.getMessage());
+                _logger.exception("An error occurred during command execution", e);
+                _logger.info("An error occurred: " + e.getMessage());
             }
         }
     }
