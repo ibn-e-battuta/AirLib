@@ -1,29 +1,30 @@
 package repository;
 
-import model.Book;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class BookRepository {
+import model.Book;
+import repository.contract.IBookRepository;
+
+public class BookRepository implements IBookRepository {
     private final Map<String, Book> books = new HashMap<>();
 
-    public void addBook(Book book) {
+    public void add(Book book) {
         books.put(book.getId(), book);
     }
 
-    public void updateBook(Book book) {
+    public void update(Book book) {
         books.put(book.getId(), book);
     }
 
-    public void removeBook(String isbn) {
+    public void remove(String isbn) {
         var book = books.get(isbn);
         book.setDeleted(true);
     }
 
-    public Optional<Book> getBook(String isbn) {
+    public Optional<Book> getById(String isbn) {
         return books.values().stream().filter(b -> b.getId().equals(isbn) && !b.isDeleted()).findAny();
     }
 
@@ -48,7 +49,7 @@ public class BookRepository {
                 .toList();
     }
 
-    public List<Book> searchBooks(String query, String searchBy) {
+    public List<Book> search(String query, String searchBy) {
         String lowercaseQuery = query.toLowerCase();
         return books.values().stream()
                 .filter(b -> !b.isDeleted() && (switch (searchBy.toLowerCase()) {

@@ -22,7 +22,7 @@ public class BookCopy extends Deletable {
         return branch;
     }
 
-    public void setBranch(LibraryBranch branch) {
+    public void setLibraryBranch(LibraryBranch branch) {
         this.branch = branch;
     }
 

@@ -9,11 +9,11 @@ public class CommandInputProcessor {
     private CommandInputProcessor() {
     }
 
-    public static String processToken(String token) {
+    public static String processToken(final String token) {
         return token.replace('_', ' ');
     }
 
-    public static List<String> processListToken(String token) {
+    public static List<String> processListToken(final String token) {
         return Arrays.stream(token.split(","))
                 .map(CommandInputProcessor::processToken)
                 .collect(Collectors.toCollection(ArrayList::new));

@@ -1,33 +1,36 @@
 package command.book;
 
+import java.util.List;
+
 import command.Command;
+import response.BookResponse;
 import service.BookService;
 import util.Logger;
 
-import java.util.List;
-
 public class SearchBooksCommand implements Command {
-    private final BookService _bookService;
-    private final Logger _logger;
+    private final BookService bookService;
+    private final Logger logger;
 
     public SearchBooksCommand(BookService bookService, Logger logger) {
-        _bookService = bookService;
-        _logger = logger;
+        this.bookService = bookService;
+        this.logger = logger;
     }
 
     @Override
-    public void execute(List<String> args) throws Exception {
+    public void execute(final List<String> args) {
         if (args.size() != 2) {
             throw new IllegalArgumentException("Usage: SEARCH-BOOKS [searchBy] [query]");
         }
 
-        var searchBy = args.get(0);
-        var query = args.get(1);
+        final String searchBy = args.get(0);
+        final String query = args.get(1);
 
-        var results = _bookService.searchBooks(query, searchBy);
-        _logger.info("Search results:");
-        for (var result : results) {
-            _logger.info(result.toString());
+        final List<BookResponse> bookResponses = bookService.searchBooks(query, searchBy);
+        if (bookResponses.isEmpty()) {
+            logger.console("No books found matching the search criteria.");
+        } else {
+            logger.console("Search results:");
+            bookResponses.forEach(b -> logger.console(b.toString()));
         }
     }
 }

@@ -1,9 +1,9 @@
 package model;
 
-import model.base.Deletable;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import model.base.Deletable;
 
 public class LibraryBranch extends Deletable {
     private String name;
@@ -33,7 +33,7 @@ public class LibraryBranch extends Deletable {
         this.address = address;
     }
 
-    public List<BookCopy> getBookItems() {
+    public List<BookCopy> getBookCopies() {
         return bookCopies;
     }
 

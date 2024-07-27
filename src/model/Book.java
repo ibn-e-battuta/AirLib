@@ -1,16 +1,16 @@
 package model;
 
-import model.base.Deletable;
-
 import java.util.List;
+
+import model.base.Deletable;
 
 public class Book extends Deletable {
     private String title;
-    private List<String> authors;
-    private List<String> genres;
-    private Integer publicationYear;
+    private final List<String> authors;
+    private final List<String> genres;
+    private int publicationYear;
 
-    public Book(String isbn, String title, List<String> authors, List<String> genres, Integer publicationYear) {
+    public Book(String isbn, String title, List<String> authors, List<String> genres, int publicationYear) {
         super(isbn);
         this.title = title;
         this.authors = authors;

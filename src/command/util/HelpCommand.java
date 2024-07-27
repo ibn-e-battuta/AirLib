@@ -1,27 +1,73 @@
 package command.util;
 
-import command.Command;
-
 import java.util.List;
-import java.util.Map;
+
+import command.Command;
+import command.CommandType;
+import util.Constants;
 
 public class HelpCommand implements Command {
-    private final Map<String, String> _commandDescriptions;
+    private final CommandType[] commandTypes;
 
-    public HelpCommand(Map<String, String> commandDescriptions) {
-        _commandDescriptions = commandDescriptions;
+    public HelpCommand(CommandType[] commandTypes) {
+        this.commandTypes = commandTypes;
     }
 
     @Override
     public void execute(List<String> args) {
-        System.out.println("Available commands:");
-        int maxCommandLength = _commandDescriptions.keySet().stream()
-                .mapToInt(String::length)
-                .max()
-                .orElse(0);
-        for (Map.Entry<String, String> entry : _commandDescriptions.entrySet()) {
-            System.out.printf("%-" + (maxCommandLength + 4) + "s - %s%n", entry.getKey(), entry.getValue());
+        if (args.isEmpty()) {
+            printAllCommands();
+        } else {
+            String commandName = args.get(0).toUpperCase();
+            printCommandHelp(commandName);
         }
-        System.out.printf("%-" + (maxCommandLength + 4) + "s - %s%n", "EXIT", "Exit the program");
+    }
+
+    private void printAllCommands() {
+        System.out.println(Constants.BLUE + "Available commands:" + Constants.RESET);
+        System.out.println(Constants.BLUE + "-------------------" + Constants.RESET);
+
+        for (CommandType commandType : commandTypes) {
+            printCommandDetails(commandType);
+            System.out.println(); // Add a blank line between commands
+        }
+
+        System.out.println(Constants.GREEN + "EXIT" + Constants.RESET);
+        System.out.println(Constants.YELLOW + "    * Exit the program" + Constants.RESET);
+    }
+
+    private void printCommandHelp(String commandName) {
+        for (CommandType commandType : commandTypes) {
+            if (commandType.getCommandName().equals(commandName)) {
+                printCommandDetails(commandType);
+                return;
+            }
+        }
+        System.out.println(Constants.YELLOW + "Unknown command: " + commandName + Constants.RESET);
+    }
+
+    private void printCommandDetails(CommandType commandType) {
+        String commandName = commandType.getCommandName();
+        String parameters = commandType.getParameters();
+        String description = commandType.getDescription();
+        String example = commandType.getExample();
+
+        // Print command name in green
+        System.out.print(Constants.GREEN + commandName + Constants.RESET);
+
+        // Print parameters in magenta if they exist
+        if (parameters != null && !parameters.isEmpty()) {
+            System.out.println(" " + Constants.MAGENTA + parameters + Constants.RESET);
+        } else {
+            System.out.println();
+        }
+
+        // Print description
+        System.out.println(Constants.YELLOW + "    * " + description + Constants.RESET);
+
+        // Print example if it exists
+        if (example != null && !example.isEmpty()) {
+            System.out.println(Constants.CYAN + "    * " + example + Constants.RESET);
+        }
     }
 }

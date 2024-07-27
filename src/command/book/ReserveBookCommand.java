@@ -1,26 +1,26 @@
 package command.book;
 
-import command.Command;
-import service.ReservationService;
-
 import java.util.List;
 
-public class ReserveBookCommand implements Command {
-    private final ReservationService _reservationService;
+import command.Command;
+import service.BookReservationService;
 
-    public ReserveBookCommand(ReservationService reservationService) {
-        _reservationService = reservationService;
+public class ReserveBookCommand implements Command {
+    private final BookReservationService bookReservationService;
+
+    public ReserveBookCommand(BookReservationService bookReservationService) {
+        this.bookReservationService = bookReservationService;
     }
 
     @Override
-    public void execute(List<String> args) throws Exception {
+    public void execute(final List<String> args) {
         if (args.size() != 2) {
             throw new IllegalArgumentException("Usage: RESERVE-BOOK [patronId] [isbn]");
         }
 
-        var patronId = args.get(0);
-        var isbn = args.get(1);
+        final String patronId = args.get(0);
+        final String isbn = args.get(1);
 
-        _reservationService.reserveBook(patronId, isbn);
+        bookReservationService.addBookReservation(patronId, isbn);
     }
 }

@@ -1,27 +1,28 @@
 package command.branch;
 
-import command.Command;
-import model.Library;
-import util.Logger;
-
 import java.util.List;
 
+import command.Command;
+import model.Library;
+import response.LibraryBranchResponse;
+import util.Logger;
+
 public class PrintLibraryDetailsCommand implements Command {
-    private final Logger _logger;
+    private final Logger logger;
 
     public PrintLibraryDetailsCommand(Logger logger) {
-        _logger = logger;
+        this.logger = logger;
     }
 
     @Override
-    public void execute(List<String> args) {
+    public void execute(final List<String> args) {
         if (!args.isEmpty()) {
             throw new IllegalArgumentException("Usage: PRINT-LIBRARY");
         }
-        var library = Library.getInstance();
-        _logger.info(library.toString());
-        for (var branchResponse : library.getBranches()) {
-            _logger.info(branchResponse.toString());
-        }
+
+        final Library library = Library.getInstance();
+
+        logger.consoleOutput(library.toString());
+        library.getLibraryBranches().stream().map(LibraryBranchResponse::toString).forEach(logger::consoleOutput);
     }
 }

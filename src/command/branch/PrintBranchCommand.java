@@ -1,35 +1,32 @@
 package command.branch;
 
-import command.Command;
-import service.LibraryService;
-import util.Logger;
-
 import java.util.List;
 
-public class PrintBranchCommand implements Command {
-    private final LibraryService _libraryService;
-    private final Logger _logger;
+import command.Command;
+import response.LibraryBranchResponse;
+import service.LibraryBranchService;
+import util.Logger;
 
-    public PrintBranchCommand(LibraryService libraryService, Logger logger) {
-        _libraryService = libraryService;
-        _logger = logger;
+public class PrintBranchCommand implements Command {
+    private final LibraryBranchService libraryBranchService;
+    private final Logger logger;
+
+    public PrintBranchCommand(LibraryBranchService libraryBranchService, Logger logger) {
+        this.libraryBranchService = libraryBranchService;
+        this.logger = logger;
     }
 
     @Override
-    public void execute(List<String> args) throws Exception {
+    public void execute(List<String> args) {
         if (args.isEmpty()) {
-            var branches = _libraryService.getAllBranches();
-            for (int i = 0; i < branches.size(); i++) {
-                _logger.info(branches.get(i).toString());
-                if (i != branches.size() - 1)
-                    System.out.println();
-            }
+            final List<LibraryBranchResponse> libraryBranchResponses = libraryBranchService.getAllLibraryBranches();
+            libraryBranchResponses.stream().map(LibraryBranchResponse::toString).forEach(logger::consoleOutput);
         } else if (args.size() == 1) {
-            String branchId = args.get(0);
-            var branch = _libraryService.getBranch(branchId);
-            _logger.info(branch.toString());
+            final String branchCode = args.getFirst();
+            final LibraryBranchResponse libraryBranchResponse = libraryBranchService.getLibraryBranch(branchCode);
+            logger.consoleOutput(libraryBranchResponse.toString());
         } else {
-            throw new IllegalArgumentException("Usage: PRINT-BRANCH [branchId]");
+            throw new IllegalArgumentException("Usage: PRINT-BRANCH [branchCode]");
         }
     }
 }

@@ -1,54 +1,64 @@
 package service;
 
-import exception.PatronExistsException;
-import exception.PatronNotFoundException;
+import java.util.List;
+import java.util.Optional;
+
+import exception.patron.PatronExistsException;
+import exception.patron.PatronNotFoundException;
 import model.Patron;
-import model.response.PatronResponse;
-import repository.PatronRepository;
+import repository.contract.IPatronRepository;
+import response.BookCheckoutResponse;
+import response.PatronResponse;
+import service.enums.EntityCode;
 import util.Logger;
 
-import java.util.List;
-
-import static util.Constants.PATRON_CODE;
-
 public class PatronService {
-    private final PatronRepository patronRepository;
+    private final IPatronRepository patronRepository;
     private final Logger logger;
 
     private int patronCount = 0;
 
-    public PatronService(PatronRepository patronRepository, Logger logger) {
+    public PatronService(IPatronRepository patronRepository, Logger logger) {
         this.patronRepository = patronRepository;
         this.logger = logger;
     }
 
-    public void addPatron(String name, String email, List<String> preferences) throws PatronExistsException {
-        var response = patronRepository.getPatronByEmail(email);
-        if (response.isPresent()) {
+    public void addPatron(final String name, final String email, final List<String> preferences) {
+        Optional<Patron> optionalPatron = patronRepository.getByEmail(email);
+        if (optionalPatron.isPresent()) {
             throw new PatronExistsException(email);
         }
 
         patronCount++;
-        var patron = new Patron(PATRON_CODE + patronCount, name, email, preferences);
-        patronRepository.addPatron(patron);
-        logger.info("Patron added: " + patron.getId());
+        final Patron patron = new Patron(EntityCode.PATRON.getCode() + patronCount, name, email, preferences);
+        patronRepository.add(patron);
+        logger.consoleOutput("Patron added: " + patron.getId());
     }
 
-    public PatronResponse getPatron(String patronId) throws PatronNotFoundException {
-        var patron = patronRepository.getPatron(patronId)
-            .orElseThrow(() -> new PatronNotFoundException(patronId));
-
-        return new PatronResponse(patron.getName(), patron.getEmail(), patron.getBorrowingHistory().size());
+    public PatronResponse getPatron(final String patronId) {
+        final Patron patron = patronRepository.getById(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
+        return new PatronResponse(patron);
     }
 
-    public void updatePatron(String patronId, String name, String email, List<String> preferences) throws PatronNotFoundException {
-        var patron = patronRepository.getPatron(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
+    public void updatePatron(final String patronId, final String name, final String email,
+            final List<String> preferences) {
+        final Patron patron = patronRepository.getById(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
 
         patron.setName(name);
         patron.setEmail(email);
         patron.setPreferences(preferences);
 
-        patronRepository.updatePatron(patron);
-        logger.info("Patron updated: " + patron.getId());
+        patronRepository.update(patron);
+        logger.consoleOutput("Patron updated: " + patron.getId());
+    }
+
+    public List<BookCheckoutResponse> getPatronBookCheckouts(final String patronId) {
+        final Patron patron = patronRepository.getById(patronId)
+                .orElseThrow(() -> new PatronNotFoundException(patronId));
+
+        return patron.getBookCheckouts().stream()
+                .map(c -> new BookCheckoutResponse(c.getBookCopy().getBook().getTitle(), c.getIssueDate().toString(),
+                        c.getReturnDate().toString()))
+                .toList();
     }
 }

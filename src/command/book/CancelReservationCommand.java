@@ -1,25 +1,25 @@
 package command.book;
 
-import command.Command;
-import service.ReservationService;
-
 import java.util.List;
 
-public class CancelReservationCommand implements Command {
-    private final ReservationService _reservationService;
+import command.Command;
+import service.BookReservationService;
 
-    public CancelReservationCommand(ReservationService reservationService) {
-        _reservationService = reservationService;
+public class CancelReservationCommand implements Command {
+    private final BookReservationService bookReservationService;
+
+    public CancelReservationCommand(BookReservationService bookReservationService) {
+        this.bookReservationService = bookReservationService;
     }
 
     @Override
-    public void execute(List<String> args) throws Exception {
+    public void execute(final List<String> args) {
         if (args.size() != 1) {
             throw new IllegalArgumentException("Usage: CANCEL-RESERVATION [reservationId]");
         }
 
-        var reservationId = args.get(0);
+        final String bookReservationId = args.getFirst();
 
-        _reservationService.cancelReservation(reservationId);
+        bookReservationService.cancelBookReservation(bookReservationId);
     }
 }

@@ -15,8 +15,10 @@ public abstract class BaseModel {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof BaseModel baseModel)) return false;
+        if (this == o)
+            return true;
+        if (!(o instanceof BaseModel baseModel))
+            return false;
         return Objects.equals(id, baseModel.id);
     }
 

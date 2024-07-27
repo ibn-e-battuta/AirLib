@@ -1,30 +1,30 @@
 package command.patron;
 
+import java.util.List;
+
 import command.Command;
+import response.PatronResponse;
 import service.PatronService;
 import util.Logger;
 
-import java.util.List;
-
 public class PrintPatronCommand implements Command {
-
-    private final PatronService _patronService;
-    private final Logger _logger;
+    private final PatronService patronService;
+    private final Logger logger;
 
     public PrintPatronCommand(PatronService patronService, Logger logger) {
-        _patronService = patronService;
-        _logger = logger;
+        this.patronService = patronService;
+        this.logger = logger;
     }
 
     @Override
-    public void execute(List<String> args) throws Exception {
+    public void execute(final List<String> args) {
         if (args.size() != 1) {
             throw new IllegalArgumentException("Usage: PRINT-PATRON [patronId]");
         }
 
-        var patronId = args.get(0);
+        final String patronId = args.getFirst();
 
-        var patronResponse = _patronService.getPatron(patronId);
-        _logger.info(patronResponse.toString());
+        final PatronResponse patronResponse = patronService.getPatron(patronId);
+        logger.consoleOutput(patronResponse.toString());
     }
 }

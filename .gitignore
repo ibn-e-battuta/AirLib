@@ -29,3 +29,8 @@ bin/
 .DS_Store
 /.idea/aws.xml
 /air-lib.log
+.idea/.gitignore
+.idea/misc.xml
+.idea/modules.xml
+.idea/uiDesigner.xml
+.idea/vcs.xml

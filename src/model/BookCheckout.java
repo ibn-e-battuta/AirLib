@@ -1,8 +1,8 @@
 package model;
 
-import model.base.BaseModel;
-
 import java.time.LocalDate;
+
+import model.base.BaseModel;
 
 public class BookCheckout extends BaseModel {
     private final Patron patron;
@@ -25,7 +25,7 @@ public class BookCheckout extends BaseModel {
         return patron;
     }
 
-    public BookCopy getBookItem() {
+    public BookCopy getBookCopy() {
         return bookCopy;
     }
 
