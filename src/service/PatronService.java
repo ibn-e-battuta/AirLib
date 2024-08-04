@@ -44,6 +44,11 @@ public class PatronService {
             final List<String> preferences) {
         final Patron patron = patronRepository.getById(patronId).orElseThrow(() -> new PatronNotFoundException(patronId));
 
+        Optional<Patron> optionalPatron = patronRepository.getByEmail(email);
+        if (optionalPatron.isPresent()) {
+            throw new PatronExistsException(email);
+        }
+
         patron.setName(name);
         patron.setEmail(email);
         patron.setPreferences(preferences);
